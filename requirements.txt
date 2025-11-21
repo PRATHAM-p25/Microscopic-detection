@@ -1,7 +1,6 @@
-streamlit==1.30.0
-ultralytics==8.3.229
+streamlit
+ultralytics
 opencv-python-headless
-Pillow
 numpy
+Pillow
 requests
-onnxruntime   # optional, ultralytics may pull this automatically
