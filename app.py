@@ -16,7 +16,7 @@ st.title("Microscopy Detector (ONNX via Ultralytics)")
 # ------------- Settings -------------
 MODEL_LOCAL_PATH = "best.onnx"   # local fallback
 # If you host on Google Drive, paste the file id here (optional)
-GDRIVE_FILE_ID = "1zNcDTXYBGNpVVPLWWJAquqWCDSXLf9AK"  # e.g. "1a2B3cD4eF..." (leave empty if you put best.onnx beside app.py)
+GDRIVE_FILE_ID = ""  # e.g. "1a2B3cD4eF..." (leave empty if you put best.onnx beside app.py)
 MODEL_IMG_SIZE = 1024  # set to the size you exported with (you exported with 1024)
 CONF_THRESH = st.sidebar.slider("Confidence threshold", 0.0, 1.0, 0.25)
 # ------------------------------------
