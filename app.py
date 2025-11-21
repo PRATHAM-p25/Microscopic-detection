@@ -243,4 +243,4 @@ st.markdown("**MongoDB notes / troubleshooting**")
 st.markdown("""
 - If you see `auth failure` -> double-check username/password and that the user has access to the `microscopy_db` database (or use admin DB).
 - If you see connection timeout -> whitelist your IP or use `0.0.0.0/0` temporarily under Network Access in Atlas.
-- To store URI securely in Streamlit Cloud: go to *Manage app → Settings → Secrets* and add:
+- To store URI securely in Streamlit Cloud: go to *Manage app → Settings → Secrets* and add: """)
