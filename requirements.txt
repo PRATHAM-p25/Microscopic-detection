@@ -10,15 +10,12 @@
 #ultralytics
 
 streamlit
-ultralytics==8.0.22
-Pillow
+onnxruntime
+onnx
 numpy
+Pillow
+opencv-python-headless
 requests
 pymongo
-bcrypt
-pyyaml
-python-dotenv
-psutil
-bson
-gridfs
+dnspython
 
