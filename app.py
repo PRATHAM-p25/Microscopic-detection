@@ -8,6 +8,101 @@ from pymongo import MongoClient, errors
 import gridfs
 from datetime import datetime
 
+# ---------- AUTHENTICATION (Sign up / Sign in) ----------
+import bcrypt
+from pymongo.errors import DuplicateKeyError
+
+# Make sure a 'users' collection exists and has a unique index on username
+users_coll = db.get_collection("users")
+try:
+    # create unique index (safe to call repeatedly)
+    users_coll.create_index("username", unique=True)
+except Exception:
+    pass
+
+# Helper: hash password
+def hash_password(plain_password: str) -> bytes:
+    return bcrypt.hashpw(plain_password.encode("utf-8"), bcrypt.gensalt())
+
+# Helper: verify password
+def check_password(plain_password: str, hashed: bytes) -> bool:
+    try:
+        return bcrypt.checkpw(plain_password.encode("utf-8"), hashed)
+    except Exception:
+        return False
+
+# Initialize session state
+if "user" not in st.session_state:
+    st.session_state["user"] = None  # stores username when logged in
+
+# Auth UI: small panel at top-right (or adjust placement)
+with st.sidebar.expander("Account"):
+    # if logged in: show username + sign out
+    if st.session_state.get("user"):
+        st.write(f"Logged in as: *{st.session_state['user']}*")
+        if st.button("Sign out"):
+            st.session_state["user"] = None
+            st.success("Signed out.")
+    else:
+        auth_tab = st.radio("Choose action", ["Sign In", "Sign Up"])
+
+        if auth_tab == "Sign Up":
+            new_user = st.text_input("Username (signup)", key="su_user")
+            new_pwd = st.text_input("Password (signup)", type="password", key="su_pwd")
+            confirm_pwd = st.text_input("Confirm password", type="password", key="su_pwd2")
+
+            if st.button("Create account"):
+                if not new_user or not new_pwd:
+                    st.error("Enter username and password.")
+                elif new_pwd != confirm_pwd:
+                    st.error("Passwords do not match.")
+                else:
+                    # hash and store
+                    hashed = hash_password(new_pwd)
+                    user_doc = {
+                        "username": new_user,
+                        "password": hashed,          # stored as bytes/BSON Binary
+                        "created_at": datetime.utcnow()
+                    }
+                    try:
+                        users_coll.insert_one(user_doc)
+                        st.success("Account created. You can now sign in.")
+                    except DuplicateKeyError:
+                        st.error("Username already exists. Choose another.")
+                    except Exception as e:
+                        st.error(f"Failed to create account: {e}")
+
+        else:  # Sign In
+            user_in = st.text_input("Username (signin)", key="si_user")
+            pwd_in = st.text_input("Password (signin)", type="password", key="si_pwd")
+            if st.button("Sign in"):
+                if not user_in or not pwd_in:
+                    st.error("Enter username and password.")
+                else:
+                    user_doc = users_coll.find_one({"username": user_in})
+                    if not user_doc:
+                        st.error("User not found.")
+                    else:
+                        stored_hash = user_doc.get("password")
+                        # pymongo may return stored_hash as Binary; ensure bytes
+                        if isinstance(stored_hash, (bytes, bytearray)):
+                            ok = check_password(pwd_in, stored_hash)
+                        else:
+                            # if stored as str for some reason, convert
+                            try:
+                                ok = check_password(pwd_in, bytes(stored_hash))
+                            except Exception:
+                                ok = False
+                        if ok:
+                            st.session_state["user"] = user_in
+                            st.success(f"Signed in as {user_in}")
+                        else:
+                            st.error("Incorrect password.")
+# ---------- END AUTH ----------
+client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+db = client["microscopy_db"]
+
+
 st.set_page_config(layout="wide", page_title="Microscopy ONNX Demo")
 
 st.title("Microscopy Detector (ONNX via Ultralytics + MongoDB storage)")
@@ -18,7 +113,6 @@ MODEL_IMG_SIZE = 1024
 DEFAULT_CONF = 0.25
 
 
-# --- Load Mongo URI ---
 def get_mongo_uri():
     try:
         mongo_conf = st.secrets.get("mongo")
@@ -33,7 +127,6 @@ MONGO_URI = get_mongo_uri()
 USE_DB = bool(MONGO_URI)
 
 
-# --- Download model from GDrive if needed ---
 def download_from_gdrive(file_id, dest):
     if os.path.exists(dest):
         return dest
@@ -52,7 +145,6 @@ def load_model(model_path):
     return YOLO(model_path)
 
 
-# --- Helper for text size ---
 def get_text_size(draw, text, font):
     try:
         bbox = draw.textbbox((0, 0), text, font=font)
@@ -64,7 +156,6 @@ def get_text_size(draw, text, font):
             return (len(text) * 6, 11)
 
 
-# --- Draw detections ---
 def draw_predictions(pil_img, results, conf_thresh=0.25, model_names=None):
     draw = ImageDraw.Draw(pil_img)
     try:
@@ -111,7 +202,6 @@ def draw_predictions(pil_img, results, conf_thresh=0.25, model_names=None):
     return pil_img, counts
 
 
-# --- MongoDB setup ---
 client = None
 db = None
 fs = None
@@ -133,7 +223,6 @@ if USE_DB:
         db_error_msg = f"MongoDB connection error: {e}"
 
 
-# --- Model loading ---
 if GDRIVE_FILE_ID:
     try:
         download_from_gdrive(GDRIVE_FILE_ID, MODEL_LOCAL_PATH)
@@ -151,7 +240,6 @@ with st.spinner("Loading model..."):
 st.success("Model loaded successfully!")
 
 
-# ---------------- MAIN UI ---------------- #
 st.header("Run Detection")
 
 conf = st.slider("Confidence threshold", 0.0, 1.0, DEFAULT_CONF)
@@ -178,7 +266,6 @@ if uploaded or camera:
         st.write("Counts:", counts)
         st.success(f"Done in {time.time() - start:.2f}s")
 
-        # --- Save to MongoDB ---
         if USE_DB:
             if db_error_msg:
                 st.error(db_error_msg)
