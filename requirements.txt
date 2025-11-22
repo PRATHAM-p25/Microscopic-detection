@@ -1,10 +1,9 @@
 streamlit
-onnxruntime
-onnx
-numpy
-Pillow
-opencv-python-headless
-requests
-pymongo
-dnspython
+ultralytics
+pymongo[srv]
+gridfs
 bcrypt
+pillow
+numpy
+requests
+opencv-python-headless
